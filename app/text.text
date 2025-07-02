@@ -1,0 +1,35 @@
+FaceCrypt Cloud: A Secure Cloud-Based Face Recognition Authentication System
+Project name:
+FaceCrypt-Cloud
+
+Project database:
+FaceCryptCloud
+
+بديل Firebaso مفتوح المصدر
+Supabase
+
+Click Get started.
+تفعيل Firebase Storage
+
+No-cost, subject to quotas and limits that vary based on attestation provider.
+
+Bucket reference
+gs://
+facecryptcloud.firebasestorage.app
+Storage class
+Regional
+
+import firebase_admin
+from firebase_admin import credentials
+
+cred = credentials.Certificate("path/to/serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+
+templates
+
+
+
+
+
+
+
