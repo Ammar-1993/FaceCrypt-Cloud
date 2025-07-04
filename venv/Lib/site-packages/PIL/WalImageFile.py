@@ -22,21 +22,17 @@ and has been tested with a few sample files found using google.
     is not registered for use with :py:func:`PIL.Image.open()`.
     To open a WAL file, use the :py:func:`PIL.WalImageFile.open()` function instead.
 """
-from __future__ import annotations
-
-from typing import IO
 
 from . import Image, ImageFile
 from ._binary import i32le as i32
-from ._typing import StrOrBytesPath
 
 
 class WalImageFile(ImageFile.ImageFile):
     format = "WAL"
     format_description = "Quake2 Texture"
 
-    def _open(self) -> None:
-        self._mode = "P"
+    def _open(self):
+        self.mode = "P"
 
         # read header fields
         header = self.fp.read(32 + 24 + 32 + 12)
@@ -53,15 +49,15 @@ class WalImageFile(ImageFile.ImageFile):
         if next_name:
             self.info["next_name"] = next_name
 
-    def load(self) -> Image.core.PixelAccess | None:
-        if self._im is None:
+    def load(self):
+        if not self.im:
             self.im = Image.core.new(self.mode, self.size)
             self.frombytes(self.fp.read(self.size[0] * self.size[1]))
             self.putpalette(quake2palette)
         return Image.Image.load(self)
 
 
-def open(filename: StrOrBytesPath | IO[bytes]) -> WalImageFile:
+def open(filename):
     """
     Load texture from a Quake2 WAL texture file.
 

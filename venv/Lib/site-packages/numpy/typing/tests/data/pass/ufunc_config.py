@@ -1,33 +1,19 @@
-"""Typing tests for `numpy._core._ufunc_config`."""
+"""Typing tests for `numpy.core._ufunc_config`."""
 
 import numpy as np
 
-
-def func1(a: str, b: int) -> None:
-    return None
-
-
-def func2(a: str, b: int, c: float = 1.0) -> None:
-    return None
-
-
-def func3(a: str, b: int) -> int:
-    return 0
-
+def func1(a: str, b: int) -> None: ...
+def func2(a: str, b: int, c: float = ...) -> None: ...
+def func3(a: str, b: int) -> int: ...
 
 class Write1:
-    def write(self, a: str) -> None:
-        return None
-
+    def write(self, a: str) -> None: ...
 
 class Write2:
-    def write(self, a: str, b: int = 1) -> None:
-        return None
-
+    def write(self, a: str, b: int = ...) -> None: ...
 
 class Write3:
-    def write(self, a: str) -> int:
-        return 0
+    def write(self, a: str) -> int: ...
 
 
 _err_default = np.geterr()

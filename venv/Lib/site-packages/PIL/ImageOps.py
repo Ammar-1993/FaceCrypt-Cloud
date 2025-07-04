@@ -16,21 +16,18 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
 
 import functools
 import operator
 import re
-from collections.abc import Sequence
-from typing import Literal, Protocol, cast, overload
 
-from . import ExifTags, Image, ImagePalette
+from . import Image, ImagePalette
 
 #
 # helpers
 
 
-def _border(border: int | tuple[int, ...]) -> tuple[int, int, int, int]:
+def _border(border):
     if isinstance(border, tuple):
         if len(border) == 2:
             left, top = right, bottom = border
@@ -41,7 +38,7 @@ def _border(border: int | tuple[int, ...]) -> tuple[int, int, int, int]:
     return left, top, right, bottom
 
 
-def _color(color: str | int | tuple[int, ...], mode: str) -> int | tuple[int, ...]:
+def _color(color, mode):
     if isinstance(color, str):
         from . import ImageColor
 
@@ -49,7 +46,7 @@ def _color(color: str | int | tuple[int, ...], mode: str) -> int | tuple[int, ..
     return color
 
 
-def _lut(image: Image.Image, lut: list[int]) -> Image.Image:
+def _lut(image, lut):
     if image.mode == "P":
         # FIXME: apply to lookup table, not image data
         msg = "mode P support coming soon"
@@ -59,7 +56,7 @@ def _lut(image: Image.Image, lut: list[int]) -> Image.Image:
             lut = lut + lut + lut
         return image.point(lut)
     else:
-        msg = f"not supported for mode {image.mode}"
+        msg = "not supported for this image mode"
         raise OSError(msg)
 
 
@@ -67,13 +64,7 @@ def _lut(image: Image.Image, lut: list[int]) -> Image.Image:
 # actions
 
 
-def autocontrast(
-    image: Image.Image,
-    cutoff: float | tuple[float, float] = 0,
-    ignore: int | Sequence[int] | None = None,
-    mask: Image.Image | None = None,
-    preserve_tone: bool = False,
-) -> Image.Image:
+def autocontrast(image, cutoff=0, ignore=None, mask=None, preserve_tone=False):
     """
     Maximize (normalize) image contrast. This function calculates a
     histogram of the input image (or mask region), removes ``cutoff`` percent of the
@@ -105,9 +96,10 @@ def autocontrast(
         h = histogram[layer : layer + 256]
         if ignore is not None:
             # get rid of outliers
-            if isinstance(ignore, int):
+            try:
                 h[ignore] = 0
-            else:
+            except TypeError:
+                # assume sequence
                 for ix in ignore:
                     h[ix] = 0
         if cutoff:
@@ -119,7 +111,7 @@ def autocontrast(
             for ix in range(256):
                 n = n + h[ix]
             # remove cutoff% pixels from the low end
-            cut = int(n * cutoff[0] // 100)
+            cut = n * cutoff[0] // 100
             for lo in range(256):
                 if cut > h[lo]:
                     cut = cut - h[lo]
@@ -130,7 +122,7 @@ def autocontrast(
                 if cut <= 0:
                     break
             # remove cutoff% samples from the high end
-            cut = int(n * cutoff[1] // 100)
+            cut = n * cutoff[1] // 100
             for hi in range(255, -1, -1):
                 if cut > h[hi]:
                     cut = cut - h[hi]
@@ -163,15 +155,7 @@ def autocontrast(
     return _lut(image, lut)
 
 
-def colorize(
-    image: Image.Image,
-    black: str | tuple[int, ...],
-    white: str | tuple[int, ...],
-    mid: str | int | tuple[int, ...] | None = None,
-    blackpoint: int = 0,
-    whitepoint: int = 255,
-    midpoint: int = 127,
-) -> Image.Image:
+def colorize(image, black, white, mid=None, blackpoint=0, whitepoint=255, midpoint=127):
     """
     Colorize grayscale image.
     This function calculates a color wedge which maps all black pixels in
@@ -203,9 +187,10 @@ def colorize(
         assert 0 <= blackpoint <= midpoint <= whitepoint <= 255
 
     # Define colors from arguments
-    rgb_black = cast(Sequence[int], _color(black, "RGB"))
-    rgb_white = cast(Sequence[int], _color(white, "RGB"))
-    rgb_mid = cast(Sequence[int], _color(mid, "RGB")) if mid is not None else None
+    black = _color(black, "RGB")
+    white = _color(white, "RGB")
+    if mid is not None:
+        mid = _color(mid, "RGB")
 
     # Empty lists for the mapping
     red = []
@@ -213,67 +198,51 @@ def colorize(
     blue = []
 
     # Create the low-end values
-    for i in range(blackpoint):
-        red.append(rgb_black[0])
-        green.append(rgb_black[1])
-        blue.append(rgb_black[2])
+    for i in range(0, blackpoint):
+        red.append(black[0])
+        green.append(black[1])
+        blue.append(black[2])
 
     # Create the mapping (2-color)
-    if rgb_mid is None:
-        range_map = range(whitepoint - blackpoint)
+    if mid is None:
+        range_map = range(0, whitepoint - blackpoint)
 
         for i in range_map:
-            red.append(
-                rgb_black[0] + i * (rgb_white[0] - rgb_black[0]) // len(range_map)
-            )
-            green.append(
-                rgb_black[1] + i * (rgb_white[1] - rgb_black[1]) // len(range_map)
-            )
-            blue.append(
-                rgb_black[2] + i * (rgb_white[2] - rgb_black[2]) // len(range_map)
-            )
+            red.append(black[0] + i * (white[0] - black[0]) // len(range_map))
+            green.append(black[1] + i * (white[1] - black[1]) // len(range_map))
+            blue.append(black[2] + i * (white[2] - black[2]) // len(range_map))
 
     # Create the mapping (3-color)
     else:
-        range_map1 = range(midpoint - blackpoint)
-        range_map2 = range(whitepoint - midpoint)
+        range_map1 = range(0, midpoint - blackpoint)
+        range_map2 = range(0, whitepoint - midpoint)
 
         for i in range_map1:
-            red.append(
-                rgb_black[0] + i * (rgb_mid[0] - rgb_black[0]) // len(range_map1)
-            )
-            green.append(
-                rgb_black[1] + i * (rgb_mid[1] - rgb_black[1]) // len(range_map1)
-            )
-            blue.append(
-                rgb_black[2] + i * (rgb_mid[2] - rgb_black[2]) // len(range_map1)
-            )
+            red.append(black[0] + i * (mid[0] - black[0]) // len(range_map1))
+            green.append(black[1] + i * (mid[1] - black[1]) // len(range_map1))
+            blue.append(black[2] + i * (mid[2] - black[2]) // len(range_map1))
         for i in range_map2:
-            red.append(rgb_mid[0] + i * (rgb_white[0] - rgb_mid[0]) // len(range_map2))
-            green.append(
-                rgb_mid[1] + i * (rgb_white[1] - rgb_mid[1]) // len(range_map2)
-            )
-            blue.append(rgb_mid[2] + i * (rgb_white[2] - rgb_mid[2]) // len(range_map2))
+            red.append(mid[0] + i * (white[0] - mid[0]) // len(range_map2))
+            green.append(mid[1] + i * (white[1] - mid[1]) // len(range_map2))
+            blue.append(mid[2] + i * (white[2] - mid[2]) // len(range_map2))
 
     # Create the high-end values
-    for i in range(256 - whitepoint):
-        red.append(rgb_white[0])
-        green.append(rgb_white[1])
-        blue.append(rgb_white[2])
+    for i in range(0, 256 - whitepoint):
+        red.append(white[0])
+        green.append(white[1])
+        blue.append(white[2])
 
     # Return converted image
     image = image.convert("RGB")
     return _lut(image, red + green + blue)
 
 
-def contain(
-    image: Image.Image, size: tuple[int, int], method: int = Image.Resampling.BICUBIC
-) -> Image.Image:
+def contain(image, size, method=Image.Resampling.BICUBIC):
     """
     Returns a resized version of the image, set to the maximum width and height
     within the requested size, while maintaining the original aspect ratio.
 
-    :param image: The image to resize.
+    :param image: The image to resize and crop.
     :param size: The requested output size in pixels, given as a
                  (width, height) tuple.
     :param method: Resampling method to use. Default is
@@ -297,44 +266,7 @@ def contain(
     return image.resize(size, resample=method)
 
 
-def cover(
-    image: Image.Image, size: tuple[int, int], method: int = Image.Resampling.BICUBIC
-) -> Image.Image:
-    """
-    Returns a resized version of the image, so that the requested size is
-    covered, while maintaining the original aspect ratio.
-
-    :param image: The image to resize.
-    :param size: The requested output size in pixels, given as a
-                 (width, height) tuple.
-    :param method: Resampling method to use. Default is
-                   :py:attr:`~PIL.Image.Resampling.BICUBIC`.
-                   See :ref:`concept-filters`.
-    :return: An image.
-    """
-
-    im_ratio = image.width / image.height
-    dest_ratio = size[0] / size[1]
-
-    if im_ratio != dest_ratio:
-        if im_ratio < dest_ratio:
-            new_height = round(image.height / image.width * size[0])
-            if new_height != size[1]:
-                size = (size[0], new_height)
-        else:
-            new_width = round(image.width / image.height * size[1])
-            if new_width != size[0]:
-                size = (new_width, size[1])
-    return image.resize(size, resample=method)
-
-
-def pad(
-    image: Image.Image,
-    size: tuple[int, int],
-    method: int = Image.Resampling.BICUBIC,
-    color: str | int | tuple[int, ...] | None = None,
-    centering: tuple[float, float] = (0.5, 0.5),
-) -> Image.Image:
+def pad(image, size, method=Image.Resampling.BICUBIC, color=None, centering=(0.5, 0.5)):
     """
     Returns a resized and padded version of the image, expanded to fill the
     requested aspect ratio and size.
@@ -362,9 +294,7 @@ def pad(
     else:
         out = Image.new(image.mode, size, color)
         if resized.palette:
-            palette = resized.getpalette()
-            if palette is not None:
-                out.putpalette(palette)
+            out.putpalette(resized.getpalette())
         if resized.width != size[0]:
             x = round((size[0] - resized.width) * max(0, min(centering[0], 1)))
             out.paste(resized, (x, 0))
@@ -374,7 +304,7 @@ def pad(
     return out
 
 
-def crop(image: Image.Image, border: int = 0) -> Image.Image:
+def crop(image, border=0):
     """
     Remove border from image.  The same amount of pixels are removed
     from all four sides.  This function works on all image modes.
@@ -389,9 +319,7 @@ def crop(image: Image.Image, border: int = 0) -> Image.Image:
     return image.crop((left, top, image.size[0] - right, image.size[1] - bottom))
 
 
-def scale(
-    image: Image.Image, factor: float, resample: int = Image.Resampling.BICUBIC
-) -> Image.Image:
+def scale(image, factor, resample=Image.Resampling.BICUBIC):
     """
     Returns a rescaled image by a specific factor given in parameter.
     A factor greater than 1 expands the image, between 0 and 1 contracts the
@@ -414,27 +342,7 @@ def scale(
         return image.resize(size, resample)
 
 
-class SupportsGetMesh(Protocol):
-    """
-    An object that supports the ``getmesh`` method, taking an image as an
-    argument, and returning a list of tuples. Each tuple contains two tuples,
-    the source box as a tuple of 4 integers, and a tuple of 8 integers for the
-    final quadrilateral, in order of top left, bottom left, bottom right, top
-    right.
-    """
-
-    def getmesh(
-        self, image: Image.Image
-    ) -> list[
-        tuple[tuple[int, int, int, int], tuple[int, int, int, int, int, int, int, int]]
-    ]: ...
-
-
-def deform(
-    image: Image.Image,
-    deformer: SupportsGetMesh,
-    resample: int = Image.Resampling.BILINEAR,
-) -> Image.Image:
+def deform(image, deformer, resample=Image.Resampling.BILINEAR):
     """
     Deform the image.
 
@@ -450,7 +358,7 @@ def deform(
     )
 
 
-def equalize(image: Image.Image, mask: Image.Image | None = None) -> Image.Image:
+def equalize(image, mask=None):
     """
     Equalize the image histogram. This function applies a non-linear
     mapping to the input image, in order to create a uniform
@@ -481,11 +389,7 @@ def equalize(image: Image.Image, mask: Image.Image | None = None) -> Image.Image
     return _lut(image, lut)
 
 
-def expand(
-    image: Image.Image,
-    border: int | tuple[int, ...] = 0,
-    fill: str | int | tuple[int, ...] = 0,
-) -> Image.Image:
+def expand(image, border=0, fill=0):
     """
     Add border to the image
 
@@ -500,7 +404,7 @@ def expand(
     color = _color(fill, image.mode)
     if image.palette:
         palette = ImagePalette.ImagePalette(palette=image.getpalette())
-        if isinstance(color, tuple) and (len(color) == 3 or len(color) == 4):
+        if isinstance(color, tuple):
             color = palette.getcolor(color)
     else:
         palette = None
@@ -511,13 +415,7 @@ def expand(
     return out
 
 
-def fit(
-    image: Image.Image,
-    size: tuple[int, int],
-    method: int = Image.Resampling.BICUBIC,
-    bleed: float = 0.0,
-    centering: tuple[float, float] = (0.5, 0.5),
-) -> Image.Image:
+def fit(image, size, method=Image.Resampling.BICUBIC, bleed=0.0, centering=(0.5, 0.5)):
     """
     Returns a resized and cropped version of the image, cropped to the
     requested aspect ratio and size.
@@ -551,12 +449,13 @@ def fit(
     # kevin@cazabon.com
     # https://www.cazabon.com
 
-    centering_x, centering_y = centering
+    # ensure centering is mutable
+    centering = list(centering)
 
-    if not 0.0 <= centering_x <= 1.0:
-        centering_x = 0.5
-    if not 0.0 <= centering_y <= 1.0:
-        centering_y = 0.5
+    if not 0.0 <= centering[0] <= 1.0:
+        centering[0] = 0.5
+    if not 0.0 <= centering[1] <= 1.0:
+        centering[1] = 0.5
 
     if not 0.0 <= bleed < 0.5:
         bleed = 0.0
@@ -593,8 +492,8 @@ def fit(
         crop_height = live_size[0] / output_ratio
 
     # make the crop
-    crop_left = bleed_pixels[0] + (live_size[0] - crop_width) * centering_x
-    crop_top = bleed_pixels[1] + (live_size[1] - crop_height) * centering_y
+    crop_left = bleed_pixels[0] + (live_size[0] - crop_width) * centering[0]
+    crop_top = bleed_pixels[1] + (live_size[1] - crop_height) * centering[1]
 
     crop = (crop_left, crop_top, crop_left + crop_width, crop_top + crop_height)
 
@@ -602,7 +501,7 @@ def fit(
     return image.resize(size, method, box=crop)
 
 
-def flip(image: Image.Image) -> Image.Image:
+def flip(image):
     """
     Flip the image vertically (top to bottom).
 
@@ -612,7 +511,7 @@ def flip(image: Image.Image) -> Image.Image:
     return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
 
 
-def grayscale(image: Image.Image) -> Image.Image:
+def grayscale(image):
     """
     Convert the image to grayscale.
 
@@ -622,18 +521,20 @@ def grayscale(image: Image.Image) -> Image.Image:
     return image.convert("L")
 
 
-def invert(image: Image.Image) -> Image.Image:
+def invert(image):
     """
     Invert (negate) the image.
 
     :param image: The image to invert.
     :return: An image.
     """
-    lut = list(range(255, -1, -1))
+    lut = []
+    for i in range(256):
+        lut.append(255 - i)
     return image.point(lut) if image.mode == "1" else _lut(image, lut)
 
 
-def mirror(image: Image.Image) -> Image.Image:
+def mirror(image):
     """
     Flip image horizontally (left to right).
 
@@ -643,7 +544,7 @@ def mirror(image: Image.Image) -> Image.Image:
     return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
 
-def posterize(image: Image.Image, bits: int) -> Image.Image:
+def posterize(image, bits):
     """
     Reduce the number of bits for each color channel.
 
@@ -651,17 +552,19 @@ def posterize(image: Image.Image, bits: int) -> Image.Image:
     :param bits: The number of bits to keep for each channel (1-8).
     :return: An image.
     """
+    lut = []
     mask = ~(2 ** (8 - bits) - 1)
-    lut = [i & mask for i in range(256)]
+    for i in range(256):
+        lut.append(i & mask)
     return _lut(image, lut)
 
 
-def solarize(image: Image.Image, threshold: int = 128) -> Image.Image:
+def solarize(image, threshold=128):
     """
     Invert all pixel values above a threshold.
 
     :param image: The image to solarize.
-    :param threshold: All pixels above this grayscale level are inverted.
+    :param threshold: All pixels above this greyscale level are inverted.
     :return: An image.
     """
     lut = []
@@ -673,31 +576,19 @@ def solarize(image: Image.Image, threshold: int = 128) -> Image.Image:
     return _lut(image, lut)
 
 
-@overload
-def exif_transpose(image: Image.Image, *, in_place: Literal[True]) -> None: ...
-
-
-@overload
-def exif_transpose(
-    image: Image.Image, *, in_place: Literal[False] = False
-) -> Image.Image: ...
-
-
-def exif_transpose(image: Image.Image, *, in_place: bool = False) -> Image.Image | None:
+def exif_transpose(image):
     """
-    If an image has an EXIF Orientation tag, other than 1, transpose the image
-    accordingly, and remove the orientation data.
+    If an image has an EXIF Orientation tag, other than 1, return a new image
+    that is transposed accordingly. The new image will have the orientation
+    data removed.
+
+    Otherwise, return a copy of the image.
 
     :param image: The image to transpose.
-    :param in_place: Boolean. Keyword-only argument.
-        If ``True``, the original image is modified in-place, and ``None`` is returned.
-        If ``False`` (default), a new :py:class:`~PIL.Image.Image` object is returned
-        with the transposition applied. If there is no transposition, a copy of the
-        image will be returned.
+    :return: An image.
     """
-    image.load()
-    image_exif = image.getexif()
-    orientation = image_exif.get(ExifTags.Base.Orientation, 1)
+    exif = image.getexif()
+    orientation = exif.get(0x0112)
     method = {
         2: Image.Transpose.FLIP_LEFT_RIGHT,
         3: Image.Transpose.ROTATE_180,
@@ -708,38 +599,23 @@ def exif_transpose(image: Image.Image, *, in_place: bool = False) -> Image.Image
         8: Image.Transpose.ROTATE_90,
     }.get(orientation)
     if method is not None:
-        if in_place:
-            image.im = image.im.transpose(method)
-            image._size = image.im.size
-        else:
-            transposed_image = image.transpose(method)
-        exif_image = image if in_place else transposed_image
-
-        exif = exif_image.getexif()
-        if ExifTags.Base.Orientation in exif:
-            del exif[ExifTags.Base.Orientation]
-            if "exif" in exif_image.info:
-                exif_image.info["exif"] = exif.tobytes()
-            elif "Raw profile type exif" in exif_image.info:
-                exif_image.info["Raw profile type exif"] = exif.tobytes().hex()
-            for key in ("XML:com.adobe.xmp", "xmp"):
-                if key in exif_image.info:
-                    for pattern in (
-                        r'tiff:Orientation="([0-9])"',
-                        r"<tiff:Orientation>([0-9])</tiff:Orientation>",
-                    ):
-                        value = exif_image.info[key]
-                        if isinstance(value, str):
-                            value = re.sub(pattern, "", value)
-                        elif isinstance(value, tuple):
-                            value = tuple(
-                                re.sub(pattern.encode(), b"", v) for v in value
-                            )
-                        else:
-                            value = re.sub(pattern.encode(), b"", value)
-                        exif_image.info[key] = value
-        if not in_place:
-            return transposed_image
-    elif not in_place:
-        return image.copy()
-    return None
+        transposed_image = image.transpose(method)
+        transposed_exif = transposed_image.getexif()
+        if 0x0112 in transposed_exif:
+            del transposed_exif[0x0112]
+            if "exif" in transposed_image.info:
+                transposed_image.info["exif"] = transposed_exif.tobytes()
+            elif "Raw profile type exif" in transposed_image.info:
+                transposed_image.info[
+                    "Raw profile type exif"
+                ] = transposed_exif.tobytes().hex()
+            elif "XML:com.adobe.xmp" in transposed_image.info:
+                for pattern in (
+                    r'tiff:Orientation="([0-9])"',
+                    r"<tiff:Orientation>([0-9])</tiff:Orientation>",
+                ):
+                    transposed_image.info["XML:com.adobe.xmp"] = re.sub(
+                        pattern, "", transposed_image.info["XML:com.adobe.xmp"]
+                    )
+        return transposed_image
+    return image.copy()
