@@ -2,7 +2,7 @@ from utils import face_utils
 
 # استبدل هذه المسارات بصورك المحلية لاختبار حقيقي
 IMAGE_PATH_1 = "test_images/Ammar.jpg"
-IMAGE_PATH_2 = "test_images/Ali.jpg"
+IMAGE_PATH_2 = "test_images/user1.png"
 
 def load_image_from_path(path):
     from PIL import Image
@@ -32,6 +32,8 @@ img2 = load_image_from_path(IMAGE_PATH_2)
 try:
     encoding1 = face_utils.extract_face_encoding(img1)
     print("✅ Encoding 1:", encoding1)
+    # print(encoding1.tolist())
+
 except Exception as e:
     print("❌ Error in Encoding 1:", e)
     encoding1 = None

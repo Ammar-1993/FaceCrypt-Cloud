@@ -37,3 +37,9 @@ def log_audit_event(event_data):
     doc_ref = db.collection('audit_logs').document()
     doc_ref.set(event_data)
     print("✅ Audit event logged.")
+
+def update_user_fields(user_id, data):
+    doc_ref = db.collection('users').document(user_id)
+    doc_ref.update(data)
+    print(f"✅ Updated user {user_id} with: {data}")
+
