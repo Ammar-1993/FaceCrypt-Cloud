@@ -3,6 +3,8 @@ from flask import Flask
 from app import config
 from app.routes import bp as routes_bp
 from app.users.routes import users_bp
+from app.admin.routes import admin_bp
+
 
 def create_app():
     app = Flask(
@@ -16,6 +18,8 @@ def create_app():
     # تسجيل الـ Blueprints
     app.register_blueprint(routes_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(admin_bp)
+
 
     print("✅ Flask App created and routes registered.")
     return app
