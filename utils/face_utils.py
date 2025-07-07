@@ -26,10 +26,10 @@ def extract_face_encoding(image_array):
             raise ValueError(f"Unsupported shape: {image_array.shape}")
         encodings = face_recognition.face_encodings(image_array)
         if len(encodings) == 0:
-            raise ValueError("❌ No face detected in the image.")
+            raise ValueError("No face was detected. Please try again with a clear photo.")
         return encodings[0]
     except Exception as e:
-        raise ValueError(f"❌ Face encoding failed: {str(e)}")
+        raise ValueError(f"Face encoding failed: {str(e)}")
 
 
 def compare_encodings(known_encoding, unknown_encoding, tolerance=0.6):

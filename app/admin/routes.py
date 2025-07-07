@@ -1,11 +1,20 @@
 from flask import Blueprint, request, jsonify
 from app import config
 from utils import face_utils, firebase_utils
+from flask import render_template
+
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 # ✅ ثابت: كلمة السر الإدارية
 ADMIN_PASSWORD = "admin123"
+
+# ✅ /admin
+# ✅ صفحة HTML - Admin Portal
+@admin_bp.route('/', methods=['GET'])
+def admin_portal():
+    return render_template('index_admin.html')
+
 
 # ✅ /admin/login
 @admin_bp.route('/login', methods=['POST'])
@@ -16,9 +25,9 @@ def admin_login():
 
     password = data['password']
     if password == ADMIN_PASSWORD:
-        return jsonify({"message": "✅ Admin Authenticated"}), 200
+        return jsonify({"message": "✅ Welcome, Admin"}), 200
     else:
-        return jsonify({"error": "❌ Invalid Password"}), 403
+        return jsonify({"error": "Invalid Password"}), 403
 
 # ✅ /admin/add_user
 @admin_bp.route('/add_user', methods=['POST'])
@@ -50,12 +59,12 @@ def admin_add_user():
         # ✅ إضافة إلى Firestore
         firebase_utils.add_user_to_firestore(user_id, user_data)
 
-        return jsonify({"message": "✅ User added successfully"}), 200
+        return jsonify({"message": "User was added successfully"}), 200
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"❌ Internal Error: {str(e)}"}), 500
+        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
     
 # ✅ /admin/delete_user
 @admin_bp.route('/delete_user', methods=['POST'])
@@ -68,9 +77,9 @@ def admin_delete_user():
 
     try:
         firebase_utils.delete_user_from_firestore(user_id)
-        return jsonify({"message": "✅ User deleted successfully"}), 200
+        return jsonify({"message": "User was deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"error": f"❌ Internal Error: {str(e)}"}), 500
+        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
 
 # ✅ /admin/list_users
 @admin_bp.route('/list_users', methods=['GET'])
@@ -93,7 +102,7 @@ def admin_list_users():
         return jsonify({"users": response}), 200
 
     except Exception as e:
-        return jsonify({"error": f"❌ Internal Error: {str(e)}"}), 500
+        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
     
 # ✅ /admin/audit_logs
 @admin_bp.route('/audit_logs', methods=['GET'])
@@ -111,6 +120,6 @@ def admin_audit_logs():
         return jsonify({"logs": logs}), 200
 
     except Exception as e:
-        return jsonify({"error": f"❌ Internal Error: {str(e)}"}), 500
+        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
 
 

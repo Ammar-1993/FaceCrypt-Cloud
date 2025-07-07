@@ -1,4 +1,7 @@
+from datetime import datetime
 from firebase_admin import firestore
+import pytz
+
 from app.config import db
 
 def add_user_to_firestore(user_id, user_data):
@@ -31,12 +34,10 @@ def get_all_users():
     return users
 
 def log_audit_event(event_data):
-    """
-    يسجل حدث تدقيق (Audit Event) في Firestore
-    """
-    doc_ref = db.collection('audit_logs').document()
-    doc_ref.set(event_data)
-    print("✅ Audit event logged.")
+    local_tz = pytz.timezone("Asia/Riyadh")   # or your correct zone
+    local_time = datetime.now(local_tz).isoformat()
+    event_data['timestamp'] = local_time
+    db.collection('audit_logs').document().set(event_data)
 
 def update_user_fields(user_id, data):
     doc_ref = db.collection('users').document(user_id)

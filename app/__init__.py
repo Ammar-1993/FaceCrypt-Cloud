@@ -6,6 +6,7 @@ from app.users.routes import users_bp
 from app.admin.routes import admin_bp
 
 
+
 def create_app():
     app = Flask(
         __name__,

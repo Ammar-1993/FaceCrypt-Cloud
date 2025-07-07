@@ -2,32 +2,146 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FaceCrypt Cloud - Upload Image</title>
+  <title>FaceCrypt Cloud - User Portal</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    form { margin: 20px auto; width: 300px; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
-    input[type="file"] { margin: 10px 0; }
-    button { padding: 10px 20px; }
+    body { background-color: #f8f9fa; text-align: center; padding: 20px; }
+    h1 { margin-top: 20px; }
+    video, img { margin: 20px auto; max-width: 300px; border: 2px solid #ccc; border-radius: 10px; }
+    #result { margin-top: 20px; max-width: 400px; margin-left: auto; margin-right: auto; }
+    #captureButton, #stopCameraButton { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>✅ FaceCrypt Cloud</h1>
-  <h2>Upload Your Face Image</h2>
+  <div class="container">
+    <h1>✅ FaceCrypt Cloud</h1>
+    <h5>Smart System for Protecting Websites using Facial Recognition Technology & Firebase </h5> 
+    <p>Secure Facial Login</p>
 
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <!-- <input type="file" name="image" accept="image/*" required> -->
-    <input type="file" name="image" accept="image/*">
-    <br>
-    <button type="submit">Upload Image</button>
-  </form>
+    <!-- Camera Section -->
+    <button id="openCamera" class="btn btn-primary">📷 Open Camera</button>
+    <video id="cameraStream" width="300" autoplay playsinline style="display:none;"></video>
+    <button id="captureButton" class="btn btn-warning mt-2" style="display:none;">📸 Capture</button>
+    <button id="stopCameraButton" class="btn btn-secondary mt-2" style="display:none;">✖️ Stop Camera</button>
 
-{% if message %}
-  {% if "✅" in message %}
-    <p style="color: green; font-weight: bold;">{{ message }}</p>
-  {% else %}
-    <p style="color: red; font-weight: bold;">{{ message }}</p>
-  {% endif %}
-{% endif %}
+    <!-- Upload Section -->
+    <div class="mt-3">
+      <input type="file" id="imageUpload" accept="image/*" class="form-control mt-2" />
+    </div>
 
+    <!-- Preview -->
+    <img id="preview" src="#" alt="Preview" style="display:none;">
+
+    <!-- Send -->
+    <button id="sendButton" class="btn btn-success mt-3">✅ Send for Verification</button>
+
+    <!-- Result -->
+    <div id="result" class="mt-3"></div>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById('imageUpload');
+    const preview = document.getElementById('preview');
+    const resultDiv = document.getElementById('result');
+    const sendButton = document.getElementById('sendButton');
+
+    const openCameraButton = document.getElementById('openCamera');
+    const cameraStream = document.getElementById('cameraStream');
+    const captureButton = document.getElementById('captureButton');
+    const stopCameraButton = document.getElementById('stopCameraButton');
+
+    let selectedFile = null;
+    let stream = null;
+
+    // 📁 Upload from file
+    imageInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      if (selectedFile) {
+        preview.src = URL.createObjectURL(selectedFile);
+        preview.style.display = 'block';
+        showAlert('✅ Image selected successfully.', 'success');
+      }
+    });
+
+    // 📷 Open Camera
+    openCameraButton.addEventListener('click', async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraStream.srcObject = stream;
+        cameraStream.style.display = 'block';
+        captureButton.style.display = 'inline-block';
+        stopCameraButton.style.display = 'inline-block';
+        clearAlert();
+      } catch (err) {
+        showAlert('❌ Camera access denied or unavailable.', 'danger');
+      }
+    });
+
+    // 📸 Capture Frame
+    captureButton.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = cameraStream.videoWidth;
+      canvas.height = cameraStream.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(cameraStream, 0, 0);
+      canvas.toBlob((blob) => {
+        selectedFile = new File([blob], "captured.png", { type: "image/png" });
+        preview.src = URL.createObjectURL(selectedFile);
+        preview.style.display = 'block';
+        showAlert('✅ Image captured successfully.', 'success');
+      });
+    });
+
+    // ✖️ Stop Camera
+    stopCameraButton.addEventListener('click', () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      cameraStream.style.display = 'none';
+      captureButton.style.display = 'none';
+      stopCameraButton.style.display = 'none';
+      showAlert('✔️ Camera stopped.', 'secondary');
+    });
+
+    // 📤 Send to /users/verify_login
+    sendButton.addEventListener('click', async () => {
+      if (!selectedFile) {
+        showAlert('❌ Please select or capture an image first.', 'danger');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      showAlert('⏳ Verifying, please wait...', 'info');
+
+      try {
+        const response = await fetch('/users/verify_login', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          showAlert(`✅ Login successful. Welcome,  <strong>${data.user.name}</strong>`, 'success');
+        } else {
+          showAlert(`❌ ${data.error || 'Access Denied. Please try again.'}`, 'danger');
+        }
+      } catch (error) {
+        showAlert('❌ Network error. Please try again.', 'danger');
+      }
+    });
+
+    // Alert Utility
+    function showAlert(message, type) {
+      resultDiv.innerHTML = `
+        <div class="alert alert-${type}" role="alert">
+          ${message}
+        </div>`;
+    }
+    function clearAlert() {
+      resultDiv.innerHTML = "";
+    }
+  </script>
 </body>
 </html>

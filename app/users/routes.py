@@ -1,3 +1,4 @@
+import time
 from flask import Blueprint, request, jsonify
 from utils import face_utils, firebase_utils
 
@@ -30,6 +31,21 @@ def list_users():
     users = firebase_utils.get_all_users()
     return jsonify({"users": users})
 
+def is_soft_blocked(user):
+    """Check if user is soft-blocked and if block should be lifted."""
+    if user.get("soft_block", False):
+        soft_block_time = user.get("soft_block_time", 0)
+        if int(time.time()) - soft_block_time < 300:  # 5 minutes
+            return True
+        else:
+            # Unblock after 5 minutes
+            firebase_utils.update_user_fields(user['id'], {
+                "soft_block": False,
+                "soft_block_time": None,
+                "failed_attempts": 0
+            })
+    return False
+
 @users_bp.route('/verify_login', methods=['POST'])
 def verify_login():
     if 'image' not in request.files:
@@ -40,44 +56,45 @@ def verify_login():
         return jsonify({"error": "❌ Empty file name"}), 400
 
     try:
-        # ✅ Load image from request
+        # Load and encode image
         image_array = face_utils.load_image_from_request(image_file)
-        
-        # ✅ Extract face encoding
         new_encoding = face_utils.extract_face_encoding(image_array)
-        
-        # ✅ جلب جميع المستخدمين
-        users = firebase_utils.get_all_users()
 
+        users = firebase_utils.get_all_users()
         print(f"✅ Retrieved {len(users)} users from Firestore")
 
-        # ✅ مقارنة الوجه الجديد مع جميع المستخدمين
+        # Check for soft-blocked users first
+        for user in users:
+            if is_soft_blocked(user):
+                return jsonify({
+                    "message": "❌ Too many failed attempts. Please try again in 5 minutes."
+                }), 403
+
+        # Try to match face
         matched_user = None
         for user in users:
-            # ✅ تحقق من حالة الحظر الدائم
             if user.get('blocked', False):
-                continue  # حساب مغلق دائمًا
+                continue  # Skip permanently blocked users
 
             stored_encoding = user.get('face_encoding')
             if stored_encoding is None:
                 continue
 
-            result = face_utils.compare_encodings(stored_encoding, new_encoding)
-            if result:
+            if face_utils.compare_encodings(stored_encoding, new_encoding):
                 matched_user = user
                 break
 
-        # ✅ إذا وجدنا تطابق
         if matched_user:
-            # ✅ إزالة عدد المحاولات
             user_id = matched_user['id']
+            # Reset failed attempts and soft block info
             updated_data = {
                 "failed_attempts": 0,
-                "soft_block": False
+                "soft_block": False,
+                "soft_block_time": None
             }
             firebase_utils.update_user_fields(user_id, updated_data)
 
-            # ✅ تسجيل Audit Log
+            # Log audit event
             firebase_utils.log_audit_event({
                 "user_id": user_id,
                 "status": "success",
@@ -85,7 +102,7 @@ def verify_login():
             })
 
             return jsonify({
-                "message": "✅ Access Granted",
+                "message": f"✅ Login successful. Welcome, {matched_user.get('name', '[User Name]')}",
                 "user": {
                     "id": matched_user['id'],
                     "name": matched_user.get('name'),
@@ -93,38 +110,33 @@ def verify_login():
                 }
             }), 200
 
-        # ✅ إذا لم نجد تطابق – عالج سياسات الحظر
-        # جرب كل المستخدمين غير المحظورين
+        # No match found: increment failed attempts for all non-blocked users
         for user in users:
             user_id = user['id']
             if user.get('blocked', False):
                 continue
 
-            # زيادة عدد المحاولات
             failed_attempts = user.get('failed_attempts', 0) + 1
             update_data = {
                 "failed_attempts": failed_attempts
             }
 
-            # soft_block
+            # Soft block at 3 failed attempts
             if failed_attempts == 3:
                 update_data["soft_block"] = True
+                update_data["soft_block_time"] = int(time.time())
 
-            # blocked
+            # Hard block at 5 failed attempts
             if failed_attempts >= 5:
                 update_data["blocked"] = True
 
             firebase_utils.update_user_fields(user_id, update_data)
 
         return jsonify({
-            "message": "❌ Access Denied – No matching user found. Policy updated."
+            "message": "❌ Login failed. Face does not match our records.",
         }), 403
 
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"❌ Internal Error: {str(e)}"}), 500
-
-
-
-
+        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
