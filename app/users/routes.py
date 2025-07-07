@@ -4,6 +4,7 @@ from utils import face_utils, firebase_utils
 
 users_bp = Blueprint('users', __name__, url_prefix='/users')
 
+# ✅ /users/add
 @users_bp.route('/add', methods=['POST'])
 def add_user():
     data = request.json
@@ -16,6 +17,7 @@ def add_user():
     firebase_utils.add_user_to_firestore(user_id, user_data)
     return jsonify({"message": f"✅ User {user_id} added successfully."})
 
+# ✅ /users/delete
 @users_bp.route('/delete', methods=['POST'])
 def delete_user():
     data = request.json
@@ -26,19 +28,19 @@ def delete_user():
     firebase_utils.delete_user_from_firestore(user_id)
     return jsonify({"message": f"✅ User {user_id} deleted successfully."})
 
+# ✅ /users/list
 @users_bp.route('/list', methods=['GET'])
 def list_users():
     users = firebase_utils.get_all_users()
     return jsonify({"users": users})
 
+# ✅ Helper: check soft block status
 def is_soft_blocked(user):
-    """Check if user is soft-blocked and if block should be lifted."""
     if user.get("soft_block", False):
         soft_block_time = user.get("soft_block_time", 0)
-        if int(time.time()) - soft_block_time < 300:  # 5 minutes
+        if int(time.time()) - soft_block_time < 300:
             return True
         else:
-            # Unblock after 5 minutes
             firebase_utils.update_user_fields(user['id'], {
                 "soft_block": False,
                 "soft_block_time": None,
@@ -46,6 +48,7 @@ def is_soft_blocked(user):
             })
     return False
 
+# ✅ /users/verify_login
 @users_bp.route('/verify_login', methods=['POST'])
 def verify_login():
     if 'image' not in request.files:
@@ -63,9 +66,10 @@ def verify_login():
         users = firebase_utils.get_all_users()
         print(f"✅ Retrieved {len(users)} users from Firestore")
 
-        # Check for soft-blocked users first
+        # Check for soft-blocked users
         for user in users:
             if is_soft_blocked(user):
+                firebase_utils.log_audit_event(user['id'], "LOGIN", status='failure_soft_block', ip_address=request.remote_addr)
                 return jsonify({
                     "message": "❌ Too many failed attempts. Please try again in 5 minutes."
                 }), 403
@@ -74,32 +78,20 @@ def verify_login():
         matched_user = None
         for user in users:
             if user.get('blocked', False):
-                continue  # Skip permanently blocked users
-
-            stored_encoding = user.get('face_encoding')
-            if stored_encoding is None:
                 continue
-
-            if face_utils.compare_encodings(stored_encoding, new_encoding):
+            stored_encoding = user.get('face_encoding')
+            if stored_encoding and face_utils.compare_encodings(stored_encoding, new_encoding):
                 matched_user = user
                 break
 
         if matched_user:
             user_id = matched_user['id']
-            # Reset failed attempts and soft block info
-            updated_data = {
+            firebase_utils.update_user_fields(user_id, {
                 "failed_attempts": 0,
                 "soft_block": False,
                 "soft_block_time": None
-            }
-            firebase_utils.update_user_fields(user_id, updated_data)
-
-            # Log audit event
-            firebase_utils.log_audit_event({
-                "user_id": user_id,
-                "status": "success",
-                "event": "login",
             })
+            firebase_utils.log_audit_event(user_id, "LOGIN", status='success', ip_address=request.remote_addr)
 
             return jsonify({
                 "message": f"✅ Login successful. Welcome, {matched_user.get('name', '[User Name]')}",
@@ -110,27 +102,24 @@ def verify_login():
                 }
             }), 200
 
-        # No match found: increment failed attempts for all non-blocked users
+        # No match found
         for user in users:
             user_id = user['id']
             if user.get('blocked', False):
                 continue
 
             failed_attempts = user.get('failed_attempts', 0) + 1
-            update_data = {
-                "failed_attempts": failed_attempts
-            }
+            update_data = {"failed_attempts": failed_attempts}
 
-            # Soft block at 3 failed attempts
             if failed_attempts == 3:
                 update_data["soft_block"] = True
                 update_data["soft_block_time"] = int(time.time())
 
-            # Hard block at 5 failed attempts
             if failed_attempts >= 5:
                 update_data["blocked"] = True
 
             firebase_utils.update_user_fields(user_id, update_data)
+            firebase_utils.log_audit_event(user_id, "LOGIN", status='failure', ip_address=request.remote_addr)
 
         return jsonify({
             "message": "❌ Login failed. Face does not match our records.",
@@ -139,4 +128,4 @@ def verify_login():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": f"Internal server error. Please try again later: {str(e)}"}), 500
+        return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500

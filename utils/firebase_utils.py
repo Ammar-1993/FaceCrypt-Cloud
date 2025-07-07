@@ -33,14 +33,30 @@ def get_all_users():
     print(f"✅ Retrieved {len(users)} users.")
     return users
 
-def log_audit_event(event_data):
-    local_tz = pytz.timezone("Asia/Riyadh")   # or your correct zone
+def log_audit_event(user_id, event, status=None, ip_address=None):
+    """
+    يسجل حدث في Audit Logs مع الوقت والمنطقة الزمنية وعنوان IP وحالة النجاح أو الفشل
+    """
+    local_tz = pytz.timezone("Asia/Riyadh")
     local_time = datetime.now(local_tz).isoformat()
-    event_data['timestamp'] = local_time
+
+    event_data = {
+        'user_id': user_id,
+        'event': event,
+        'timestamp': local_time
+    }
+
+    if status:
+        event_data['status'] = status
+
+    if ip_address:
+        event_data['ip_address'] = ip_address
+
     db.collection('audit_logs').document().set(event_data)
+    print(f"✅ Logged event: {event_data}")
+
 
 def update_user_fields(user_id, data):
     doc_ref = db.collection('users').document(user_id)
     doc_ref.update(data)
     print(f"✅ Updated user {user_id} with: {data}")
-
