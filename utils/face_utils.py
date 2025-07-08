@@ -1,7 +1,12 @@
 import numpy as np
 import face_recognition
+import json
 from PIL import Image
 from io import BytesIO
+from cryptography.fernet import Fernet
+from app.config import SECRET_KEY
+fernet = Fernet(SECRET_KEY.encode())
+
 
 def load_image_from_request(file):
     """
@@ -41,3 +46,21 @@ def compare_encodings(known_encoding, unknown_encoding, tolerance=0.6):
         raise ValueError("❌ One or both encodings are invalid.")
     results = face_recognition.compare_faces([known_encoding], unknown_encoding, tolerance=tolerance)
     return results[0]
+
+def encrypt_encoding(encoding):
+    """
+    Takes a list of floats, serializes and encrypts it.
+    Returns a string.
+    """
+    serialized = json.dumps(encoding).encode()
+    encrypted = fernet.encrypt(serialized)
+    return encrypted.decode()
+
+def decrypt_encoding(encrypted_str):
+    """
+    Takes an encrypted string, decrypts and deserializes it to list of floats.
+    """
+    decrypted = fernet.decrypt(encrypted_str.encode())
+    decoded = json.loads(decrypted.decode())
+    return decoded
+

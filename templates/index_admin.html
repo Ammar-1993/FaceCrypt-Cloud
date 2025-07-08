@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>FaceCrypt Cloud - Admin Portal</title>
@@ -9,24 +10,82 @@
       background-color: #f8f9fa;
       padding: 20px;
     }
-    h1, h3, h4 {
+
+    h1,
+    h3,
+    h4 {
       text-align: center;
     }
+
     .card {
       margin-bottom: 20px;
     }
-    #loginSection, #adminPanel {
-      max-width: 600px;
+
+    #loginSection,
+    #adminPanel {
+      max-width: 800px;
       margin: auto;
     }
+
     .hidden {
       display: none;
     }
+
     .alert {
       margin-top: 10px;
     }
+
+    .stat-box {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 6px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .bg-stat-success {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .bg-stat-failure {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .bg-stat-blocked {
+      background-color: #ffc107;
+      color: #212529;
+    }
+
+    .bg-stat-soft {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    #refreshButton {
+      font-size: 0.9rem;
+      padding: 4px 8px;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: #f8f9fa;
+    }
+
+    .table-striped tbody tr:hover {
+      background-color: #e2e6ea;
+    }
+
+    #paginationControls {
+      margin-top: 10px;
+      text-align: center;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h1 class="mb-4">✅ FaceCrypt Cloud - Admin Portal</h1>
@@ -34,24 +93,25 @@
     <!-- Login Section -->
     <div id="loginSection" class="card p-4 shadow">
       <h3 class="mb-3">🔐 Admin Login</h3>
-      <input type="password" id="adminPassword" class="form-control mb-3" placeholder="Admin Password">
+      <input type="password" id="adminPassword" class="form-control mb-3" placeholder="Admin Password" required>
       <button class="btn btn-primary w-100" onclick="adminLogin()">Login</button>
       <div id="loginMessage"></div>
     </div>
 
     <!-- Admin Panel -->
     <div id="adminPanel" class="hidden">
-
+      <!-- Add User -->
       <div class="card p-4 shadow">
         <h4>➕ Add New User</h4>
-        <input type="text" id="newUserId" class="form-control mb-2" placeholder="User ID">
-        <input type="text" id="newUserName" class="form-control mb-2" placeholder="Name">
-        <input type="email" id="newUserEmail" class="form-control mb-2" placeholder="Email">
-        <input type="file" id="newUserImage" class="form-control mb-2">
+        <input type="text" id="newUserId" class="form-control mb-2" placeholder="User ID" required>
+        <input type="text" id="newUserName" class="form-control mb-2" placeholder="Name" required>
+        <input type="email" id="newUserEmail" class="form-control mb-2" placeholder="Email" required>
+        <input type="file" id="newUserImage" class="form-control mb-2" accept="image/*" required>
         <button class="btn btn-success w-100" onclick="addUser()">Add User</button>
         <div id="addUserMessage"></div>
       </div>
 
+      <!-- Delete User -->
       <div class="card p-4 shadow">
         <h4>❌ Delete User</h4>
         <select id="deleteUserId" class="form-select mb-2"></select>
@@ -59,8 +119,17 @@
         <div id="deleteUserMessage"></div>
       </div>
 
+      <!-- Audit Logs -->
       <div class="card p-4 shadow">
-        <h4>📜 Audit Logs</h4>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h4 class="mb-0">📜 Audit Logs</h4>
+          <button class="btn btn-sm btn-secondary" onclick="refreshAuditLogs()">🔄 Refresh Logs</button>
+        </div>
+
+        <div class="mb-3">
+          <input type="text" id="auditSearch" class="form-control" placeholder="🔎 Search logs..."
+            oninput="filterAuditLogs()">
+        </div>
         <table class="table table-striped table-bordered">
           <thead class="table-dark">
             <tr>
@@ -71,144 +140,259 @@
             </tr>
           </thead>
           <tbody id="auditLogsTable">
-            <tr><td colspan="4" class="text-center">Loading...</td></tr>
+            <tr>
+              <td colspan="4" class="text-center">Loading...</td>
+            </tr>
           </tbody>
         </table>
+        <div id="paginationControls" class="mt-2">
+          <button class="btn btn-secondary btn-sm me-2" onclick="prevPage()">⬅️ Previous</button>
+          <span id="pageIndicator">Page 1</span>
+          <button class="btn btn-secondary btn-sm ms-2" onclick="nextPage()">Next ➡️</button>
+        </div>
+      </div>
+
+      <!-- Statistics Section -->
+      <div class="card p-4 shadow">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">📊 Statistics</h4>
+          <button id="refreshButton" class="btn btn-sm btn-secondary" onclick="refreshStats()">🔄 Refresh Stats</button>
+        </div>
+        <div class="row text-center">
+          <div class="col-md-6 stat-box bg-stat-success">
+            ✅ Total Attempts: <span id="statTotal">-</span>
+          </div>
+          <div class="col-md-5 stat-box bg-stat-success">
+            ✅ Success Attempts: <span id="statSuccess">-</span>
+          </div>
+          <div class="col-md-6 stat-box bg-stat-failure">
+            ❌ Failed Attempts: <span id="statFailed">-</span>
+          </div>
+          <div class="col-md-5 stat-box bg-stat-blocked">
+            🔒 Blocked Events: <span id="statBlockedEvents">-</span>
+          </div>
+          <div class="col-md-6 stat-box bg-stat-soft">
+            🕒 Soft Block Events: <span id="statSoftBlockEvents">-</span>
+          </div>
+          <div class="col-md-5 stat-box bg-stat-blocked">
+            🔒 Blocked Users: <span id="statBlockedUsers">-</span>
+          </div>
+          <div class="col-md-6 stat-box bg-stat-soft">
+            🕒 Soft Blocked Users: <span id="statSoftBlockedUsers">-</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    
+    const API_BASE = 'http://127.0.0.1:8080';
+    function show(elem) { elem.classList.remove('hidden'); }
+    function hide(elem) { elem.classList.add('hidden'); }
+    function setText(id, msg) { document.getElementById(id).innerHTML = msg; }
 
-// ============= Config =============
-const API_BASE = 'http://127.0.0.1:8080';
+    let allAuditLogs = [];
+    let currentPage = 1;
+    const rowsPerPage = 10;
 
-// ============= Helpers =============
-function show(elem) { elem.classList.remove('hidden'); }
-function hide(elem) { elem.classList.add('hidden'); }
-function setText(id, msg) { document.getElementById(id).innerHTML = msg; }
+    async function adminLogin() {
+      const password = document.getElementById('adminPassword').value;
+      const res = await fetch(`${API_BASE}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setText('loginMessage', `<span class="text-success">✅ ${data.message}</span>`);
+        hide(document.getElementById('loginSection'));
+        show(document.getElementById('adminPanel'));
+        await loadUsers();
+        await fetchAuditLogs();
+        await refreshStats();
+      } else {
+        setText('loginMessage', `<span class="text-danger">❌ ${data.error}</span>`);
+      }
+    }
 
-// ============= Admin Login =============
-async function adminLogin() {
-  const password = document.getElementById('adminPassword').value;
-  const res = await fetch(`${API_BASE}/admin/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password })
-  });
-  const data = await res.json();
-  if (res.ok) {
-    setText('loginMessage', `<span class="text-success">✅ ${data.message}</span>`);
-    hide(document.getElementById('loginSection'));
-    show(document.getElementById('adminPanel'));
-    await loadUsers();
-    await fetchAuditLogs();
-  } else {
-    setText('loginMessage', `<span class="text-danger">❌ ${data.error}</span>`);
-  }
-}
+    async function addUser() {
+      const userId = document.getElementById('newUserId').value.trim();
+      if (!userId) {
+        setText('addUserMessage', `<span class="text-danger">❌ Please enter a User ID.</span>`);
+        return;
+      }
 
-// ============= Add User =============
-async function addUser() {
-  const userId = document.getElementById('newUserId').value;
-  const name = document.getElementById('newUserName').value;
-  const email = document.getElementById('newUserEmail').value;
-  const image = document.getElementById('newUserImage').files[0];
+      const name = document.getElementById('newUserName').value.trim();
+      if (!name) {
+        setText('addUserMessage', `<span class="text-danger">❌ Please enter the Name.</span>`);
+        return;
+      }
 
-  if (!userId || !name || !email || !image) {
-    setText('addUserMessage', `<span class="text-danger">❌ Please fill all fields and choose an image.</span>`);
-    return;
-  }
+      const email = document.getElementById('newUserEmail').value.trim();
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email) {
+        setText('addUserMessage', `<span class="text-danger">❌ Please enter the Email address.</span>`);
+        return;
+      }
+      if (!emailPattern.test(email)) {
+        setText('addUserMessage', `<span class="text-danger">❌ Please enter a valid Email address.</span>`);
+        return;
+      }
 
-  const formData = new FormData();
-  formData.append('user_id', userId);
-  formData.append('name', name);
-  formData.append('email', email);
-  formData.append('image', image);
+      const image = document.getElementById('newUserImage').files[0];
+      if (!image) {
+        setText('addUserMessage', `<span class="text-danger">❌ Please choose an Image.</span>`);
+        return;
+      }
 
-  const res = await fetch(`${API_BASE}/admin/add_user`, { method: 'POST', body: formData });
-  const data = await res.json();
-  if (res.ok) {
-    setText('addUserMessage', `<span class="text-success">✅ ${data.message}</span>`);
-    await loadUsers();
-  } else {
-    setText('addUserMessage', `<span class="text-danger">❌ ${data.error}</span>`);
-  }
-}
+      const formData = new FormData();
+      formData.append('user_id', userId);
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('image', image);
 
-// ============= Load Users for Deletion =============
-async function loadUsers() {
-  const select = document.getElementById('deleteUserId');
-  select.innerHTML = '';
-  const res = await fetch(`${API_BASE}/admin/list_users`);
-  const data = await res.json();
+      const res = await fetch(`${API_BASE}/admin/add_user`, { method: 'POST', body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setText('addUserMessage', `<span class="text-success">✅ ${data.message}</span>`);
+        await loadUsers();
+      } else {
+        setText('addUserMessage', `<span class="text-danger">❌ ${data.error}</span>`);
+      }
+    }
 
-  data.users.forEach(user => {
-    const option = document.createElement('option');
-    option.value = user.id;
-    option.text = `${user.name} (${user.id})`;
-    select.add(option);
-  });
-}
+    async function loadUsers() {
+      const select = document.getElementById('deleteUserId');
+      select.innerHTML = '';
+      const res = await fetch(`${API_BASE}/admin/list_users`);
+      const data = await res.json();
 
-// ============= Delete User =============
-async function deleteUser() {
-  const userId = document.getElementById('deleteUserId').value;
-  if (!userId) {
-    setText('deleteUserMessage', `<span class="text-danger">❌ Please select a user to delete.</span>`);
-    return;
-  }
+      data.users.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.text = `${user.name} (${user.id})`;
+        select.add(option);
+      });
+    }
 
-  const res = await fetch(`${API_BASE}/admin/delete_user`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: userId })
-  });
+    async function deleteUser() {
+      const userId = document.getElementById('deleteUserId').value;
+      if (!userId) {
+        setText('deleteUserMessage', `<span class="text-danger">❌ Please select a user to delete.</span>`);
+        return;
+      }
 
-  const data = await res.json();
-  if (res.ok) {
-    setText('deleteUserMessage', `<span class="text-success">✅ ${data.message}</span>`);
-    await loadUsers();
-  } else {
-    setText('deleteUserMessage', `<span class="text-danger">❌ ${data.error}</span>`);
-  }
-}
+      const res = await fetch(`${API_BASE}/admin/delete_user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      });
 
-// ============= Fetch Audit Logs =============
-async function fetchAuditLogs() {
-  const table = document.getElementById('auditLogsTable');
-  table.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+      const data = await res.json();
+      if (res.ok) {
+        setText('deleteUserMessage', `<span class="text-success">✅ ${data.message}</span>`);
+        await loadUsers();
+      } else {
+        setText('deleteUserMessage', `<span class="text-danger">❌ ${data.error}</span>`);
+      }
+    }
 
-  const res = await fetch(`${API_BASE}/admin/audit_logs`);
-  const data = await res.json();
+    async function fetchAuditLogs() {
+      const res = await fetch(`${API_BASE}/admin/audit_logs`);
+      const data = await res.json();
+      allAuditLogs = data.logs;
+      currentPage = 1;
+      renderAuditLogs(allAuditLogs);
+    }
 
-  if (data.logs.length === 0) {
-    table.innerHTML = '<tr><td colspan="4" class="text-center">No logs found.</td></tr>';
-    return;
-  }
+    function renderAuditLogs(logs) {
+      const table = document.getElementById('auditLogsTable');
+      const pageIndicator = document.getElementById('pageIndicator');
+      const totalPages = Math.ceil(logs.length / rowsPerPage);
 
-  table.innerHTML = '';
-  data.logs.forEach(log => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${log.event || ''}</td>
-      <td>${log.status || ''}</td>
-      <td>${log.user_id || ''}</td>
-      <td>${log.timestamp || ''}</td>
-    `;
-    table.appendChild(row);
-  });
-}
+      const start = (currentPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+      const pageData = logs.slice(start, end);
 
-function showAlert(elementId, message, type) {
-      document.getElementById(elementId).innerHTML = `
-        <div class="alert alert-${type}" role="alert">
-          ${message}
-        </div>`;
+      pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+
+      if (!pageData || pageData.length === 0) {
+        table.innerHTML = '<tr><td colspan="4" class="text-center">No logs found.</td></tr>';
+        return;
+      }
+
+      table.innerHTML = '';
+      pageData.forEach(log => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${log.event || ''}</td>
+          <td>${log.status || ''}</td>
+          <td>${log.user_id || ''}</td>
+          <td>${log.timestamp || ''}</td>
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    function nextPage() {
+      const totalPages = Math.ceil(allAuditLogs.length / rowsPerPage);
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderAuditLogs(allAuditLogs);
+      }
+    }
+
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        renderAuditLogs(allAuditLogs);
+      }
+    }
+
+    function filterAuditLogs() {
+      const query = document.getElementById('auditSearch').value.toLowerCase();
+      const filtered = allAuditLogs.filter(log =>
+        (log.event || '').toLowerCase().includes(query) ||
+        (log.status || '').toLowerCase().includes(query) ||
+        (log.user_id || '').toLowerCase().includes(query) ||
+        (log.timestamp || '').toLowerCase().includes(query)
+      );
+      currentPage = 1;
+      renderAuditLogs(filtered);
+    }
+
+    async function refreshStats() {
+      try {
+        const res = await fetch(`${API_BASE}/admin/stats`);
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('statTotal').textContent = data.total_attempts ?? 0;
+          document.getElementById('statSuccess').textContent = data.success_attempts ?? 0;
+          document.getElementById('statFailed').textContent = data.failed_attempts ?? 0;
+          document.getElementById('statBlockedEvents').textContent = data.blocked_events ?? 0;
+          document.getElementById('statSoftBlockEvents').textContent = data.soft_block_events ?? 0;
+          document.getElementById('statBlockedUsers').textContent = data.blocked_users_count ?? 0;
+          document.getElementById('statSoftBlockedUsers').textContent = data.soft_blocked_users_count ?? 0;
+        } else {
+          alert("❌ Failed to fetch stats");
+        }
+      } catch (e) {
+        console.error(e);
+        alert("❌ Error fetching stats");
+      }
+    }
+
+    async function refreshAuditLogs() {
+      try {
+        setText('auditLogsTable', '<tr><td colspan="4" class="text-center">Loading...</td></tr>');
+        await fetchAuditLogs();
+      } catch (e) {
+        console.error(e);
+        setText('auditLogsTable', '<tr><td colspan="4" class="text-center text-danger">❌ Failed to refresh logs.</td></tr>');
+      }
     }
 
   </script>
-
 </body>
+
 </html>
