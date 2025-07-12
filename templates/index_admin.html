@@ -121,10 +121,12 @@
 
       <!-- Audit Logs -->
       <div class="card p-4 shadow">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <h4 class="mb-0">📜 Audit Logs</h4>
-          <button class="btn btn-sm btn-secondary" onclick="refreshAuditLogs()">🔄 Refresh Logs</button>
+        <h4 class="mb-0">📜 Audit Logs</h4>
+        <div>
+          <button class="btn btn-sm btn-secondary me-2" onclick="refreshAuditLogs()">🔄 Refresh Logs</button>
+          <button class="btn btn-sm btn-danger" onclick="clearAuditLogs()">🗑️ Clear Logs</button>
         </div>
+
 
         <div class="mb-3">
           <input type="text" id="auditSearch" class="form-control" placeholder="🔎 Search logs..."
@@ -324,15 +326,25 @@
       table.innerHTML = '';
       pageData.forEach(log => {
         const row = document.createElement('tr');
+
+        // ✨ زر الفك
+        let statusCell = log.status || '';
+        if (log.status === 'blocked') {
+          statusCell += ` <button class="btn btn-sm btn-outline-success ms-2" onclick="unblockUser('${log.user_id}')">🔓</button>`;
+        }
+
         row.innerHTML = `
-          <td>${log.event || ''}</td>
-          <td>${log.status || ''}</td>
-          <td>${log.user_id || ''}</td>
-          <td>${log.timestamp || ''}</td>
-        `;
+      <td>${log.event || ''}</td>
+      <td>${statusCell}</td>
+      <td>${log.user_id || ''}</td>
+      <td>${log.timestamp || ''}</td>
+    `;
         table.appendChild(row);
       });
     }
+
+
+
 
     function nextPage() {
       const totalPages = Math.ceil(allAuditLogs.length / rowsPerPage);
@@ -391,6 +403,54 @@
         setText('auditLogsTable', '<tr><td colspan="4" class="text-center text-danger">❌ Failed to refresh logs.</td></tr>');
       }
     }
+
+    async function unblockUser(userId) {
+      if (!confirm(`Are you sure you want to unblock user ${userId}?`)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/admin/unblock_user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert(data.message);
+          await fetchAuditLogs();
+          await refreshStats();
+        } else {
+          alert(`❌ Error: ${data.error}`);
+        }
+      } catch (e) {
+        console.error(e);
+        alert("❌ Error unblocking user");
+      }
+    }
+
+
+    async function clearAuditLogs() {
+  if (!confirm("⚠️ Are you sure you want to delete ALL audit logs? This cannot be undone.")) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/admin/clear_audit_logs`, {
+      method: 'POST'
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.message);
+      await fetchAuditLogs();
+      await refreshStats();
+    } else {
+      alert(`❌ Error: ${data.error}`);
+    }
+  } catch (e) {
+    console.error(e);
+    alert("❌ Error clearing audit logs.");
+  }
+}
+
 
   </script>
 </body>

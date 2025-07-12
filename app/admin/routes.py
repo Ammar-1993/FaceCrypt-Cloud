@@ -91,9 +91,9 @@ def admin_delete_user():
 
     try:
         firebase_utils.delete_user_from_firestore(user_id)
-        return jsonify({"message": "✅ User was deleted successfully"}), 200
+        return jsonify({"message": " User was deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
 
 # ✅ /admin/list_users
@@ -188,3 +188,53 @@ def admin_stats():
         return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
     
 
+@admin_bp.route('/unblock_user', methods=['POST'])
+def admin_unblock_user():
+    data = request.get_json()
+    if not data or 'user_id' not in data:
+        return jsonify({"error": "❌ user_id is required"}), 400
+
+    user_id = data['user_id']
+
+    try:
+        # تحديث حالة المستخدم في Firestore
+        firebase_utils.update_user_fields(user_id, {
+            "blocked": False,
+            "failed_attempts": 0,
+            "soft_block": False,
+            "soft_block_time": None
+        })
+
+        # سجل في Audit Logs
+        firebase_utils.log_audit_event(
+            user_id,
+            "Admin_Unblock",
+            status="success",
+            ip_address=request.remote_addr
+        )
+
+        return jsonify({"message": "✅ User unblocked successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
+    
+@admin_bp.route('/clear_audit_logs', methods=['POST'])
+def admin_clear_audit_logs():
+    try:
+        logs_ref = config.db.collection('audit_logs').stream()
+        count = 0
+        for doc in logs_ref:
+            doc.reference.delete()
+            count += 1
+
+        # سجّل عملية المسح في السجل نفسه
+        firebase_utils.log_audit_event(
+            'admin',
+            'Clear_Audit_Logs',
+            status='success'
+        )
+
+        return jsonify({"message": f"✅ Deleted {count} audit logs."}), 200
+
+    except Exception as e:
+        return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
