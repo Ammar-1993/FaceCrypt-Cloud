@@ -2,9 +2,17 @@
 const API_BASE = 'http://127.0.0.1:8080';
 
 // ============= Helpers =============
-function show(elem) { elem.classList.remove('hidden'); }
-function hide(elem) { elem.classList.add('hidden'); }
-function setText(id, msg) { document.getElementById(id).innerHTML = msg; }
+function show(elem) {
+  elem.classList.remove('hidden');
+}
+
+function hide(elem) {
+  elem.classList.add('hidden');
+}
+
+function setText(id, msg) {
+  document.getElementById(id).innerHTML = msg;
+}
 
 // ============= Admin Login =============
 async function adminLogin() {
@@ -21,6 +29,7 @@ async function adminLogin() {
     show(document.getElementById('adminPanel'));
     await loadUsers();
     await fetchAuditLogs();
+    await refreshStats();
   } else {
     setText('loginMessage', `<span class="text-danger">❌ ${data.error}</span>`);
   }
@@ -92,21 +101,24 @@ async function deleteUser() {
   }
 }
 
-// ============= Fetch Audit Logs =============
-async function fetchAuditLogs() {
-  const table = document.getElementById('auditLogsTable');
-  table.innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
+// ============= Audit Logs =============
+let allAuditLogs = [];
 
+async function fetchAuditLogs() {
   const res = await fetch(`${API_BASE}/admin/audit_logs`);
   const data = await res.json();
+  allAuditLogs = data.logs;
+  renderAuditLogs(allAuditLogs);
+}
 
-  if (data.logs.length === 0) {
+function renderAuditLogs(logs) {
+  const table = document.getElementById('auditLogsTable');
+  if (!logs || logs.length === 0) {
     table.innerHTML = '<tr><td colspan="4" class="text-center">No logs found.</td></tr>';
     return;
   }
-
   table.innerHTML = '';
-  data.logs.forEach(log => {
+  logs.forEach(log => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${log.event || ''}</td>
@@ -116,4 +128,37 @@ async function fetchAuditLogs() {
     `;
     table.appendChild(row);
   });
+}
+
+function filterAuditLogs() {
+  const query = document.getElementById('auditSearch').value.toLowerCase();
+  const filtered = allAuditLogs.filter(log =>
+    (log.event || '').toLowerCase().includes(query) ||
+    (log.status || '').toLowerCase().includes(query) ||
+    (log.user_id || '').toLowerCase().includes(query) ||
+    (log.timestamp || '').toLowerCase().includes(query)
+  );
+  renderAuditLogs(filtered);
+}
+
+// ============= Statistics =============
+async function refreshStats() {
+  try {
+    const res = await fetch(`${API_BASE}/admin/stats`);
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('statTotal').textContent = data.total_attempts ?? 0;
+      document.getElementById('statSuccess').textContent = data.success_attempts ?? 0;
+      document.getElementById('statFailed').textContent = data.failed_attempts ?? 0;
+      document.getElementById('statBlockedEvents').textContent = data.blocked_events ?? 0;
+      document.getElementById('statSoftBlockEvents').textContent = data.soft_block_events ?? 0;
+      document.getElementById('statBlockedUsers').textContent = data.blocked_users_count ?? 0;
+      document.getElementById('statSoftBlockedUsers').textContent = data.soft_blocked_users_count ?? 0;
+    } else {
+      alert("❌ Failed to fetch stats");
+    }
+  } catch (e) {
+    console.error(e);
+    alert("❌ Error fetching stats");
+  }
 }

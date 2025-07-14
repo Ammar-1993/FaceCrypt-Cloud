@@ -2,7 +2,7 @@ from utils import face_utils
 
 # استبدل هذه المسارات بصورك المحلية لاختبار حقيقي
 IMAGE_PATH_1 = "test_images/Ammar.jpg"
-IMAGE_PATH_2 = "test_images/user1.png"
+IMAGE_PATH_2 = "test_images/1.jpeg"
 
 def load_image_from_path(path):
     from PIL import Image
