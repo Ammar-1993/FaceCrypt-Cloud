@@ -60,7 +60,11 @@ The system is designed for organizations and websites seeking to modernize their
 
 ## Screenshots
 
-> *You may add actual screenshots here for Admin Dashboard, User Login, Audit Logs, etc.*
+> *Admin Login Interface
+A secure login interface for administrators, allowing the system administrator to access the central control panel by entering only the secret password.*
+> <img width="919" height="424" alt="image" src="https://github.com/user-attachments/assets/095193a7-ef4c-48c5-b7ba-852f0c1d804d" />
+
+
 
 ---
 
