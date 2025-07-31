@@ -121,20 +121,6 @@ This case demonstrates the algorithm's ability to detect and match the correct f
 In this audit logs interface, it appears that five different images were uploaded unsuccessfully, and on the fifth attempt, the authorized user was permanently blocked. The lock appears in the "Audit Logs" interface, and the administrator can unlock it according to specific policies.*
 > <img width="919" height="611" alt="image" src="https://github.com/user-attachments/assets/d7142f40-5824-4280-baaa-88b9f462a9cc" />
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ---
 
 ## Technology Stack
