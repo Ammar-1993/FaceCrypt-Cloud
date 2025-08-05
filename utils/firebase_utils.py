@@ -6,7 +6,9 @@ from app.config import db
 
 def add_user_to_firestore(user_id, user_data):
     """
-    يضيف مستخدمًا جديدًا إلى Firestore
+    Adds a new user document to the Firestore 'users' collection.
+    user_id: The unique identifier for the user.
+    user_data: A dictionary containing user information.
     """
     doc_ref = db.collection('users').document(user_id)
     doc_ref.set(user_data)
@@ -14,7 +16,7 @@ def add_user_to_firestore(user_id, user_data):
 
 def delete_user_from_firestore(user_id):
     """
-    يحذف مستخدمًا من Firestore
+    Deletes a user document from the Firestore 'users' collection by user_id.
     """
     doc_ref = db.collection('users').document(user_id)
     doc_ref.delete()
@@ -22,7 +24,8 @@ def delete_user_from_firestore(user_id):
 
 def get_all_users():
     """
-    يجلب جميع المستخدمين من Firestore
+    Retrieves all user documents from the Firestore 'users' collection.
+    Returns a list of user dictionaries, each including the user's ID.
     """
     users = []
     docs = db.collection('users').stream()
@@ -35,7 +38,8 @@ def get_all_users():
 
 def log_audit_event(user_id, event, status=None, ip_address=None):
     """
-    يسجل حدث في Audit Logs مع الوقت والمنطقة الزمنية وعنوان IP وحالة النجاح أو الفشل
+    Logs an audit event to the Firestore 'audit_logs' collection.
+    Records the user_id, event type, timestamp, and optionally status and IP address.
     """
     local_tz = pytz.timezone("Asia/Riyadh")
     local_time = datetime.now(local_tz).isoformat()
@@ -55,8 +59,12 @@ def log_audit_event(user_id, event, status=None, ip_address=None):
     db.collection('audit_logs').document().set(event_data)
     print(f"✅ Logged event: {event_data}")
 
-
 def update_user_fields(user_id, data):
+    """
+    Updates specific fields for a user document in the Firestore 'users' collection.
+    user_id: The unique identifier for the user.
+    data: A dictionary of fields to update.
+    """
     doc_ref = db.collection('users').document(user_id)
     doc_ref.update(data)
     print(f"✅ Updated user {user_id} with: {data}")

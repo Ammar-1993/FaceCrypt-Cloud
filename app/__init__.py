@@ -9,9 +9,11 @@ from app.admin.routes import admin_bp
 
 def create_app():
     app = Flask(
-        __name__,
-        template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates')
-    )
+    __name__,
+    static_folder=os.path.join(os.path.dirname(__file__), '..', 'static'),
+    template_folder=os.path.join(os.path.dirname(__file__), '..', 'templates')
+)
+
     
     # تهيئة Firebase
     config.initialize_firebase()

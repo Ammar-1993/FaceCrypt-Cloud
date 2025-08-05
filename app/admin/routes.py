@@ -4,6 +4,7 @@ from utils import face_utils, firebase_utils
 import app.config as config
 
 
+
 # ✅ إنشاء الـ Blueprint
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -158,7 +159,7 @@ def admin_stats():
                 failure += 1
             elif status == 'blocked':
                 blocked_events += 1
-            elif status == 'failure_soft_block':
+            elif status == 'soft_block':
                 soft_block_events += 1
 
         # 📌 قراءة حالات المستخدمين
@@ -173,6 +174,10 @@ def admin_stats():
             if u.get('soft_block', False):
                 soft_blocked_users += 1
 
+        # In your /admin/stats endpoint
+        users = firebase_utils.get_all_users()
+        total_users = len(users)
+
         # 📌 إرجاع النتيجة
         return jsonify({
             "total_attempts": total,
@@ -181,6 +186,7 @@ def admin_stats():
             "blocked_events": blocked_events,
             "soft_block_events": soft_block_events,
             "blocked_users_count": blocked_users,
+            "total_users": total_users,
             "soft_blocked_users_count": soft_blocked_users
         })
 
@@ -217,14 +223,44 @@ def admin_unblock_user():
     except Exception as e:
         return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
 
+# @admin_bp.route('/clear_audit_logs', methods=['POST'])
+# def admin_clear_audit_logs():
+#     try:
+#         logs_ref = config.db.collection('audit_logs').stream()
+#         count = 0
+#         for doc in logs_ref:
+#             doc.reference.delete()
+#             count += 1
+
+#         # سجّل عملية المسح في السجل نفسه
+#         firebase_utils.log_audit_event(
+#             'admin',
+#             'Clear_Audit_Logs',
+#             status='success'
+#         )
+
+#         return jsonify({"message": f"✅ Deleted {count} audit logs."}), 200
+
+#     except Exception as e:
+#         return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
+
+
+
 @admin_bp.route('/clear_audit_logs', methods=['POST'])
 def admin_clear_audit_logs():
     try:
-        logs_ref = config.db.collection('audit_logs').stream()
-        count = 0
-        for doc in logs_ref:
-            doc.reference.delete()
-            count += 1
+        logs_ref = config.db.collection('audit_logs')
+        docs = list(logs_ref.stream())
+        total_count = len(docs)
+        batch_size = 500
+
+        # حذف على دفعات batch
+        for i in range(0, total_count, batch_size):
+            batch = config.db.batch()
+            batch_docs = docs[i:i + batch_size]
+            for doc in batch_docs:
+                batch.delete(doc.reference)
+            batch.commit()
 
         # سجّل عملية المسح في السجل نفسه
         firebase_utils.log_audit_event(
@@ -233,8 +269,9 @@ def admin_clear_audit_logs():
             status='success'
         )
 
-        return jsonify({"message": f"✅ Deleted {count} audit logs."}), 200
+        return jsonify({"message": f"✅ Deleted {total_count} audit logs."}), 200
 
     except Exception as e:
         return jsonify({"error": f"❌ Internal server error: {str(e)}"}), 500
+
 
