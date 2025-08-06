@@ -19,6 +19,7 @@ A **Smart Cloud-based Facial Recognition Authentication System**\
 - [Challenges & Solutions](#challenges--solutions)
 - [Future Work](#future-work)
 - [Contributors](#contributors)
+- [Contact Us](#contact-us)
 - [License](#license)
 
 ---
@@ -242,6 +243,16 @@ In this audit logs interface, it appears that five different images were uploade
 - Mohammed Abdurrahman Alshahrani
 
 *Supervised by: Dr. Ali Yasser Al-Qarni (University of Bisha)*
+
+---
+
+## Contact Us
+
+For any questions, feedback, or support, please contact:
+
+**Ammar-1993**  
+- WhatsApp: [Click here](https://wa.me/967714294340)  
+- Gmail: [Click here](mailto:ammaralnggar@gmail.com) 
 
 ---
 
